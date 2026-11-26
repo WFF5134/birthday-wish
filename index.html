@@ -85,6 +85,7 @@
     .greeting{ top:5%; }
     .controls{ right:10px; bottom:10px; gap:8px; }
     .controls button{ padding:8px 13px; font-size:13px; }
+    .pop{ font-size:12px; padding:6px 11px; border-radius:12px; white-space:normal; max-width:38%; line-height:1.35; }
   }
 </style>
 </head>
@@ -137,6 +138,7 @@
   var cvs = document.getElementById("scene");
   var ctx = cvs.getContext("2d");
   var W = 0, H = 0, DPR = 1;
+  var isNarrow = false;
 
   /* ================= 场景对象 ================= */
   var stars = [];
@@ -281,11 +283,12 @@
     });
     var rangeX = maxX - minX, rangeY = maxY - minY;
     var narrow = W < 560;
+    isNarrow = narrow;
     var scale = Math.min((W * (narrow ? 0.74 : 0.88)) / rangeX, (H * (narrow ? 0.46 : 0.54)) / rangeY);
     if (narrow) scale *= 0.9;
     layout = {
-      ccx: W / 2, ccy: H * 0.46, scale: scale,
-      cakeW: Math.min(W * (narrow ? 0.52 : 0.60), narrow ? 300 : 420),
+      ccx: W / 2, ccy: narrow ? H * 0.42 : H * 0.46, scale: scale,
+      cakeW: Math.min(W * (narrow ? 0.56 : 0.60), narrow ? 300 : 420),
       cakeBaseY: H * 0.88
     };
   }
@@ -655,9 +658,15 @@
     el.className = "pop";
     el.textContent = BLESSINGS[(Math.random() * BLESSINGS.length) | 0];
     el.style.background = POP_COLORS[(Math.random() * POP_COLORS.length) | 0];
-    el.style.top = (38 + Math.random() * 44) + "%";
-    var leftSide = Math.random() < 0.5;
-    el.style.left = (leftSide ? 6 : 70) + Math.random() * 24 + "%";
+    if (isNarrow){
+      el.style.top = (34 + Math.random() * 38) + "%";
+      var ls = Math.random() < 0.5;
+      el.style.left = (ls ? 2 : 83) + Math.random() * 14 + "%";
+    } else {
+      el.style.top = (38 + Math.random() * 44) + "%";
+      var leftSide = Math.random() < 0.5;
+      el.style.left = (leftSide ? 6 : 70) + Math.random() * 24 + "%";
+    }
     popLayer.appendChild(el);
     requestAnimationFrame(function(){ el.classList.add("in", "float"); });
     popCards.push({ el: el, born: performance.now(), life: 11000 + Math.random() * 4000 });
@@ -670,7 +679,7 @@
   }
 
   function updatePopups(now, heartP){
-    if (!reduced && heartP > 0.85 && popCards.length < 22){
+    if (!reduced && !isNarrow && heartP > 0.85 && popCards.length < 22){
       popTimer += 1 / 60;
       if (popTimer > 0.35){ popTimer = 0; spawnPopup(); }
     }
@@ -812,17 +821,30 @@
       drawHeart(px, py, p.size * pop * pulse, p.color, 0.92 * pop);
     });
 
-    tags.forEach(function(g){
+    tags.forEach(function(g, idx){
       if (heartP < 0.6) return;
-      var gang = g.ang + (reduced ? 0 : t * 0.02);
-      var gx = layout.ccx + Math.cos(gang) * layout.scale * 16 * g.rad * breath;
-      var gy = layout.ccy - Math.sin(gang) * layout.scale * 12 * g.rad * breath;
+      var gx, gy, align = "center";
+      if (isNarrow){
+        var n = tags.length;
+        var left = idx % 2 === 0;
+        var group = Math.ceil(n / 2);
+        var k = Math.floor(idx / 2);
+        gx = left ? W * 0.22 : W * 0.78;
+        gy = H * (0.30 + (group > 1 ? k / (group - 1) : 0.5) * 0.26);
+        align = left ? "left" : "right";
+      } else {
+        var gang = g.ang + (reduced ? 0 : t * 0.02);
+        var rx = layout.scale * 16 * g.rad * breath;
+        var ry = layout.scale * 12 * g.rad * breath;
+        gx = layout.ccx + Math.cos(gang) * rx;
+        gy = layout.ccy - Math.sin(gang) * ry;
+      }
       var floatY = reduced ? 0 : Math.sin(g.phase + t * 1.2) * 6;
       ctx.save();
       ctx.globalAlpha = 0.75 * easeOutCubic(heartP);
       ctx.fillStyle = "#FFD9E6";
-      ctx.font = "13px 'Microsoft YaHei', sans-serif";
-      ctx.textAlign = "center";
+      ctx.font = (isNarrow ? 12 : 13) + "px 'Microsoft YaHei', sans-serif";
+      ctx.textAlign = align;
       ctx.textBaseline = "middle";
       ctx.fillText(g.text, gx, gy + floatY);
       ctx.restore();
