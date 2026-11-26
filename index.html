@@ -481,13 +481,19 @@
       ctx.fill();
     });
 
-    // 柱身（深蓝星空，左右明暗渐变）
+    // 柱身（深蓝星空，左右明暗渐变）——圆柱侧面：左右竖边 + 底部椭圆弧收口
     var bodyGrad = ctx.createLinearGradient(cx - bodyW / 2, 0, cx + bodyW / 2, 0);
     bodyGrad.addColorStop(0, "#0D1330");
     bodyGrad.addColorStop(0.5, "#1C2654");
     bodyGrad.addColorStop(1, "#0D1330");
     ctx.fillStyle = bodyGrad;
-    roundRect2(cx - bodyW / 2, topY, bodyW, bodyH, w * 0.03);
+    var bodyRx = bodyW / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - bodyRx, topY);
+    ctx.lineTo(cx - bodyRx, baseY);
+    ctx.ellipse(cx, baseY, bodyRx, topRy, 0, Math.PI, 0, false);
+    ctx.lineTo(cx + bodyRx, topY);
+    ctx.closePath();
     ctx.fill();
 
     // 柱身内嵌小星
@@ -507,9 +513,15 @@
       drawPearl(bx, by, p.r, p.color, alpha * 0.6);
     });
 
-    // 柱身底部蓝色光带 + 光晕
-    ctx.fillStyle = "rgba(80,170,255,.35)";
-    ctx.fillRect(cx - bodyW / 2, baseY - w * 0.05, bodyW, w * 0.05);
+    // 柱身底部蓝色弧光带（贴合底弧）+ 光晕
+    ctx.fillStyle = "rgba(80,170,255,.30)";
+    ctx.beginPath();
+    ctx.moveTo(cx - bodyRx, baseY - w * 0.05);
+    ctx.lineTo(cx - bodyRx, baseY);
+    ctx.ellipse(cx, baseY, bodyRx, topRy, 0, Math.PI, 0, false);
+    ctx.lineTo(cx + bodyRx, baseY - w * 0.05);
+    ctx.closePath();
+    ctx.fill();
     var blueGlow = ctx.createRadialGradient(cx, baseY, 1, cx, baseY, bodyW * 0.55);
     blueGlow.addColorStop(0, "rgba(90,180,255,.30)");
     blueGlow.addColorStop(1, "rgba(90,180,255,0)");
