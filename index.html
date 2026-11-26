@@ -213,7 +213,7 @@
     balloons = [];
     for (i = 0; i < 9; i++){
       balloons.push({
-        x: Math.random(), y: Math.random() * 1.2 - 0.2,
+        x: balloonX(), y: Math.random() * 1.2 - 0.2,
         vy: 0.10 + Math.random() * 0.14,
         size: 18 + Math.random() * 16,
         phase: Math.random() * Math.PI * 2,
@@ -271,6 +271,10 @@
     cvs.style.height = H + "px";
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     computeLayout();
+    if (isNarrow){
+      if (balloons.length > 5) balloons.length = 5;
+      balloons.forEach(function(b){ b.x = balloonX(); });
+    }
   }
 
   function computeLayout(){
@@ -295,6 +299,14 @@
 
   /* ================= 缓动 ================= */
   function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+
+  // 窄屏把气球挤到两侧边条，避开中间两列祝福标签；宽屏铺满
+  function balloonX(){
+    if (isNarrow){
+      return Math.random() < 0.5 ? 0.03 + Math.random() * 0.13 : 0.84 + Math.random() * 0.13;
+    }
+    return Math.random();
+  }
   function easeOutCubic(x){ return 1 - Math.pow(1 - x, 3); }
   function easeOutBack(x){
     var c1 = 1.70158, c3 = c1 + 1;
@@ -320,10 +332,10 @@
     var sway = 18 * (b.size / 26);
     var bx = b.x * W + Math.sin(b.phase + t * (0.7 + b.size / 60)) * sway;
     var by = b.y * H;
-    var s = b.size;
+    var s = isNarrow ? b.size * 0.72 : b.size;
     var breathe = 1 + 0.03 * Math.sin(t * 2 + b.phase);
     ctx.save();
-    ctx.globalAlpha = 0.82;
+    ctx.globalAlpha = isNarrow ? 0.55 : 0.82;
     ctx.strokeStyle = "rgba(255,255,255,.35)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -798,7 +810,7 @@
     balloons.forEach(function(b){
       if (!reduced){
         b.y -= b.vy / 100;
-        if (b.y < -0.15){ b.y = 1.1; b.x = Math.random(); }
+        if (b.y < -0.15){ b.y = 1.1; b.x = balloonX(); }
       }
       drawBalloon(b, t);
     });
@@ -843,10 +855,13 @@
       var floatY = reduced ? 0 : Math.sin(g.phase + t * 1.2) * 6;
       ctx.save();
       ctx.globalAlpha = 0.75 * easeOutCubic(heartP);
-      ctx.fillStyle = "#FFD9E6";
       ctx.font = (isNarrow ? 12 : 13) + "px 'Microsoft YaHei', sans-serif";
       ctx.textAlign = align;
       ctx.textBaseline = "middle";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(20,10,30,.65)";
+      ctx.strokeText(g.text, gx, gy + floatY);
+      ctx.fillStyle = "#FFD9E6";
       ctx.fillText(g.text, gx, gy + floatY);
       ctx.restore();
     });
