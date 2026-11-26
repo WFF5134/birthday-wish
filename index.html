@@ -837,13 +837,13 @@
     tags.forEach(function(g, idx){
       if (heartP < 0.6) return;
       var gang = g.ang + (reduced ? 0 : t * 0.02);
-      var radMul = isNarrow ? 1.10 : 1.0;
+      var radMul = isNarrow ? 0.92 : 1.0;
       var rx = layout.scale * 16 * g.rad * radMul * breath;
       var ry = layout.scale * 12 * g.rad * radMul * breath;
       var gx = layout.ccx + Math.cos(gang) * rx;
       var gy = layout.ccy - Math.sin(gang) * ry;
       // 窄屏限制左右边距，避免文字被屏幕边缘裁切
-      if (isNarrow){ gx = clamp(gx, 26, W - 26); }
+      if (isNarrow){ gx = clamp(gx, 30, W - 30); }
       var align = "center";
       var floatY = reduced ? 0 : Math.sin(g.phase + t * 1.2) * 6;
       ctx.save();
