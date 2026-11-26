@@ -106,7 +106,7 @@
 
 <div class="controls">
   <button id="btnReplay" type="button">重播</button>
-  <button id="btnMusic" type="button">音乐 关</button>
+  <button id="btnMusic" type="button">音乐 开</button>
   <button id="btnFull" type="button">全屏</button>
 </div>
 
@@ -730,6 +730,7 @@
       this.nextAt = cursor + 0.15;
     },
     start: function(){
+      if (this.playing){ if (this.ctx){ this.ctx.resume(); } return; }
       if (!this.ctx){
         var AC = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AC();
@@ -897,7 +898,7 @@
     clearPopups();
   });
 
-  var musicOn = false;
+  var musicOn = true;
   var btnMusic = document.getElementById("btnMusic");
   btnMusic.addEventListener("click", function(){
     musicOn = !musicOn;
@@ -908,6 +909,14 @@
       Music.stop();
       btnMusic.textContent = "音乐 关";
     }
+  });
+
+  // 默认开启：受浏览器自动播放限制，首次点击 / 触摸 / 按键时解锁发声
+  function unlockMusic(){
+    if (musicOn){ Music.start(); }
+  }
+  ["pointerdown", "touchstart", "keydown"].forEach(function(ev){
+    document.addEventListener(ev, unlockMusic);
   });
 
   var btnFull = document.getElementById("btnFull");
@@ -923,6 +932,7 @@
 
   buildStatic();
   resize();
+  try { Music.start(); } catch (e) {}
   requestAnimationFrame(frame);
 })();
 </script>
