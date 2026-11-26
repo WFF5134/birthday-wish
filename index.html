@@ -427,7 +427,7 @@
     var baseY = L.cakeBaseY - lift - hover;
     var bodyW = w * 0.78, bodyH = w * 0.42;
     var topY = baseY - bodyH;
-    var topRx = bodyW / 2, topRy = w * 0.09;
+    var topRx = bodyW / 2, topRy = w * 0.09, bottomRy = w * 0.13;
     var midY = topY + bodyH * 0.5;
 
     ctx.save();
@@ -488,10 +488,14 @@
     bodyGrad.addColorStop(1, "#0D1330");
     ctx.fillStyle = bodyGrad;
     var bodyRx = bodyW / 2;
+    var bottomRx = bodyRx * 0.92;
+    var cornerR = w * 0.07;
     ctx.beginPath();
     ctx.moveTo(cx - bodyRx, topY);
-    ctx.lineTo(cx - bodyRx, baseY);
-    ctx.ellipse(cx, baseY, bodyRx, topRy, 0, Math.PI, 0, false);
+    ctx.lineTo(cx - bodyRx, baseY - cornerR);
+    ctx.quadraticCurveTo(cx - bodyRx, baseY, cx - bottomRx, baseY);
+    ctx.lineTo(cx + bottomRx, baseY);
+    ctx.quadraticCurveTo(cx + bodyRx, baseY, cx + bodyRx, baseY - cornerR);
     ctx.lineTo(cx + bodyRx, topY);
     ctx.closePath();
     ctx.fill();
@@ -518,7 +522,7 @@
     ctx.beginPath();
     ctx.moveTo(cx - bodyRx, baseY - w * 0.05);
     ctx.lineTo(cx - bodyRx, baseY);
-    ctx.ellipse(cx, baseY, bodyRx, topRy, 0, Math.PI, 0, false);
+    ctx.lineTo(cx + bodyRx, baseY);
     ctx.lineTo(cx + bodyRx, baseY - w * 0.05);
     ctx.closePath();
     ctx.fill();
