@@ -115,8 +115,8 @@
 
   @media (max-width:480px){
     .greeting{ top:5%; }
-    .controls{ right:10px; bottom:10px; gap:6px; }
-    .controls button{ padding:6px 10px; font-size:12px; }
+    .controls{ right:8px; bottom:8px; gap:4px; }
+    .controls button{ padding:3px 7px; font-size:10px; letter-spacing:0.03em; }
     .pop{ font-size:12px; padding:6px 11px; border-radius:12px; white-space:normal; max-width:38%; line-height:1.35; }
   }
 </style>
@@ -190,6 +190,8 @@
   var fireworks = []; // 开场/重播的庆祝烟花
   var fwFired = false; // 入场烟花是否已放
   var fwWave = 0;      // 已放烟花波次
+  var lastAutoFw = 0;  // 最近一次自动烟花时间戳
+  var nextAutoFw = 4200; // 距下次自动烟花的间隔(ms)
 
   var layout = {};
 
@@ -972,27 +974,31 @@
   }
 
   /* ================= 庆祝烟花 ================= */
+  function spawnFirework(ox, oy, big){
+    var n = big ? (isNarrow ? 26 : 34) : (isNarrow ? 16 : 22);
+    var col = SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0];
+    var col2 = SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0];
+    for (var i = 0; i < n; i++){
+      var ang = (i / n) * Math.PI * 2 + Math.random() * 0.2;
+      var sp = (big ? 1.4 : 1.0) + Math.random() * 2.2;
+      fireworks.push({
+        x: ox, y: oy, px: ox, py: oy,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp,
+        size: 1.6 + Math.random() * 2.2,
+        color: Math.random() < 0.35 ? "#FFFFFF" : (Math.random() < 0.5 ? col : col2),
+        born: performance.now(), life: 900 + Math.random() * 700,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
   function burstFireworks(){
     if (reduced) return;
     var shots = isNarrow ? 2 : 3;
     for (var s = 0; s < shots; s++){
       var ox = W * (0.2 + Math.random() * 0.6);
       var oy = H * (0.16 + Math.random() * 0.26);
-      var n = isNarrow ? 22 : 30;
-      var col = SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0];
-      for (var i = 0; i < n; i++){
-        var ang = (i / n) * Math.PI * 2 + Math.random() * 0.2;
-        var sp = 1.2 + Math.random() * 2.2;
-        fireworks.push({
-          x: ox, y: oy,
-          vx: Math.cos(ang) * sp,
-          vy: Math.sin(ang) * sp,
-          size: 1.6 + Math.random() * 2.2,
-          color: Math.random() < 0.35 ? "#FFFFFF" : col,
-          born: performance.now(), life: 900 + Math.random() * 700,
-          phase: Math.random() * Math.PI * 2
-        });
-      }
+      spawnFirework(ox, oy, true);
     }
   }
 
@@ -1227,16 +1233,31 @@
       var fage = (now - fw.born) / 1000;
       var flife = fw.life / 1000;
       if (fage > flife){ fireworks.splice(fi, 1); continue; }
+      fw.px = fw.x; fw.py = fw.y;
       fw.vy += 0.035;
       fw.vx *= 0.985; fw.vy *= 0.985;
       fw.x += fw.vx; fw.y += fw.vy;
       var fk = 1 - fage / flife;
       ctx.save();
-      ctx.globalAlpha = fk;
+      // 柔光外圈
+      ctx.globalAlpha = fk * 0.35;
       ctx.fillStyle = fw.color;
+      ctx.beginPath();
+      ctx.arc(fw.x, fw.y, Math.max(fw.size * fk * 2.4, 0.5), 0, Math.PI * 2);
+      ctx.fill();
+      // 实心亮点
+      ctx.globalAlpha = fk;
       ctx.beginPath();
       ctx.arc(fw.x, fw.y, Math.max(fw.size * fk, 0.4), 0, Math.PI * 2);
       ctx.fill();
+      // 短拖尾
+      ctx.globalAlpha = fk * 0.6;
+      ctx.strokeStyle = fw.color;
+      ctx.lineWidth = Math.max(fw.size * fk * 0.8, 0.4);
+      ctx.beginPath();
+      ctx.moveTo(fw.px, fw.py);
+      ctx.lineTo(fw.x, fw.y);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -1256,6 +1277,12 @@
     if (!reduced){
       if (t > 4.6 && fwWave === 0){ fwWave = 1; fwFired = true; burstFireworks(); }
       else if (t > 8.5 && fwWave === 1){ fwWave = 2; burstFireworks(); }
+      // 开场两波之后，每隔数秒在上方随机位置自动绽放一朵
+      if (t > 9 && now - lastAutoFw > nextAutoFw){
+        lastAutoFw = now;
+        nextAutoFw = 3200 + Math.random() * 2200;
+        spawnFirework(W * (0.15 + Math.random() * 0.7), H * (0.14 + Math.random() * 0.28), Math.random() < 0.45);
+      }
     }
 
     if (t > 4.2 && !greetingEl.classList.contains("show")){
@@ -1271,6 +1298,7 @@
     greetingEl.classList.remove("show");
     clearPopups();
     fwWave = 0; fwFired = false; fireworks.length = 0;
+    lastAutoFw = 0; nextAutoFw = 4200;
     if (musicOn){ Music.replay(); }
   });
 
