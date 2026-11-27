@@ -83,10 +83,25 @@
     0%,100%{ text-shadow:0 0 24px rgba(255,107,157,.55), 0 2px 10px rgba(0,0,0,.4); transform:translateY(0); }
     50%{ text-shadow:0 0 40px rgba(255,107,157,.9), 0 2px 10px rgba(0,0,0,.4); transform:translateY(-4px); }
   }
-  .greeting .name{ animation:nameGlow 3s ease-in-out infinite; }
+  @keyframes namePop{
+    0%{ transform:scale(.6); opacity:0; }
+    60%{ transform:scale(1.08); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  @keyframes subIn{
+    0%{ transform:translateY(10px); opacity:0; }
+    100%{ transform:translateY(0); opacity:1; }
+  }
+  @keyframes heartStroke{
+    0%,100%{ stroke:rgba(255,255,255,.85); stroke-width:1.6; }
+    50%{ stroke:rgba(255,143,177,1); stroke-width:2.1; }
+  }
+  .greeting.show .name{ animation:namePop .7s cubic-bezier(.22,1,.36,1) both, nameGlow 3s ease-in-out .7s infinite; }
   .greeting h1{ animation:titleGlow 3.6s ease-in-out infinite; }
+  .greeting.show #subtitle{ animation:subIn .8s ease .35s both; }
+  .heart-ico path{ animation:heartStroke 2.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce){
-    .greeting .name, .greeting h1{ animation:none; }
+    .greeting .name, .greeting h1, .greeting.show #subtitle, .heart-ico path{ animation:none; }
   }
 
   /* ===== 右下角控制按钮 ===== */
@@ -115,8 +130,8 @@
 
   @media (max-width:480px){
     .greeting{ top:5%; }
-    .controls{ right:8px; bottom:8px; gap:4px; }
-    .controls button{ padding:3px 7px; font-size:10px; letter-spacing:0.03em; }
+    .controls{ right:8px; bottom:8px; gap:5px; }
+    .controls button{ padding:4px 8px; font-size:11px; letter-spacing:0.03em; }
     .pop{ font-size:12px; padding:6px 11px; border-radius:12px; white-space:normal; max-width:38%; line-height:1.35; }
   }
 </style>
@@ -192,6 +207,13 @@
   var fwWave = 0;      // 已放烟花波次
   var lastAutoFw = 0;  // 最近一次自动烟花时间戳
   var nextAutoFw = 4200; // 距下次自动烟花的间隔(ms)
+  var rockets = [];     // 升空后再炸开的烟花火箭
+  var meteors = [];     // 偶发划过的流星
+  var starRain = [];    // 蛋糕上方金色星光雨
+  var ripples = [];     // 点按扩散涟漪
+  var flash = 0;        // 烟花炸开时的背景提亮强度
+  var lastMeteor = 0, nextMeteor = 5000;   // 流星触发计时
+  var lastRain = 0, nextRain = 6000;       // 星雨触发计时
 
   var layout = {};
 
@@ -309,14 +331,17 @@
       { x: 0.80, y: 0.22, r: 0.38, color: "90,110,190",  phase: 2.1, drift: 0.04 },
       { x: 0.50, y: 0.80, r: 0.45, color: "190,80,130",  phase: 4.0, drift: 0.045 }
     ];
-    // 飘落彩屑
+    // 飘落彩屑：远近两层，远景慢小暗、近景快大亮
     confetti = [];
     for (i = 0; i < 24; i++){
+      var depth = i % 2; // 0 远 1 近
       confetti.push({
+        depth: depth,
         x: Math.random(), y: Math.random(),
-        vy: 0.12 + Math.random() * 0.22,
-        sway: 10 + Math.random() * 16,
-        size: 4 + Math.random() * 4,
+        vy: depth ? 0.16 + Math.random() * 0.22 : 0.08 + Math.random() * 0.12,
+        sway: depth ? 12 + Math.random() * 16 : 6 + Math.random() * 8,
+        size: depth ? 4 + Math.random() * 4 : 2.5 + Math.random() * 2.5,
+        alpha: depth ? 0.75 : 0.4,
         color: SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0],
         phase: Math.random() * Math.PI * 2,
         rot: Math.random() * Math.PI * 2,
@@ -633,6 +658,16 @@
     ctx.ellipse(cx, baseY + w * 0.02, w * 0.46, w * 0.07, 0, Math.PI * 1.15, Math.PI * 1.85);
     ctx.stroke();
     ctx.restore();
+    // 托盘流动反光：一段高光弧随时间缓慢扫过盘沿
+    ctx.save();
+    var sweepA = reduced ? Math.PI * 1.3 : Math.PI * (1.15 + 0.2 * Math.sin(t * 0.5));
+    ctx.globalAlpha = alpha * (0.25 + 0.15 * Math.sin(t * 0.8));
+    ctx.strokeStyle = "rgba(255,255,255,.8)";
+    ctx.lineWidth = w * 0.006;
+    ctx.beginPath();
+    ctx.ellipse(cx, baseY + w * 0.02, w * 0.46, w * 0.07, 0, sweepA, sweepA + 0.5);
+    ctx.stroke();
+    ctx.restore();
     // 盘面彩点
     var plateDots = [[0.30, 0.40, "#FFD166"], [0.50, 0.60, "#7CC4FF"], [0.70, 0.45, "#FF6B6B"], [0.60, 0.55, "#7CE8C6"]];
     plateDots.forEach(function(d){
@@ -833,19 +868,31 @@
       ctx.arc(c2x - cw / 2, cTop + w * 0.006, w * 0.006, 0, Math.PI * 2);
       ctx.arc(c2x + cw / 2, cTop + w * 0.006, w * 0.006, 0, Math.PI * 2);
       ctx.fill();
-      // 晃动火焰（白核心 + 金黄中层 + 橙色光晕，带摇曳与脉动）
-      var fx = c2x + Math.sin(t * 3 + cd.phase) * w * 0.008;
+      // 晃动火焰（白核心 + 金黄中层 + 橙色光晕，摇曳、窜高并向顶面打暖光）
+      var fx = c2x + Math.sin(t * 3 + cd.phase) * w * 0.014 + Math.sin(t * 7.3 + cd.phase) * w * 0.004;
       var fy = cTop - w * 0.035 + Math.sin(t * 5 + cd.phase) * w * 0.004;
       var fr = w * 0.04;
       var flick = 1 + 0.08 * Math.sin(t * 7 + cd.phase);
+      var flare = Math.max(0, Math.sin(t * 4.2 + cd.phase));
+      var flameH = 1.55 + flare * 0.35;
       var flamePulse = 1 + 0.1 * Math.sin(t * 6 + cd.phase);
+      // 火焰暖光漫射到顶面
+      ctx.save();
+      var warm = ctx.createRadialGradient(fx, cTop, 1, fx, cTop, fr * 3);
+      warm.addColorStop(0, "rgba(255,190,110," + (0.18 * flamePulse) + ")");
+      warm.addColorStop(1, "rgba(255,190,110,0)");
+      ctx.fillStyle = warm;
+      ctx.beginPath();
+      ctx.ellipse(fx, cTop, fr * 3, fr * 1.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
       var grad = ctx.createRadialGradient(fx, fy, 1, fx, fy, fr * 2.2 * flamePulse);
       grad.addColorStop(0, "#FFF6D8");
       grad.addColorStop(0.45, "#FFD166");
       grad.addColorStop(1, "rgba(255,120,60,0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.ellipse(fx, fy, fr * 0.72 * flick, fr * 1.55, 0, 0, Math.PI * 2);
+      ctx.ellipse(fx, fy, fr * 0.72 * flick, fr * flameH, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#FFE9A8";
       ctx.beginPath();
@@ -974,23 +1021,59 @@
   }
 
   /* ================= 庆祝烟花 ================= */
-  function spawnFirework(ox, oy, big){
-    var n = big ? (isNarrow ? 26 : 34) : (isNarrow ? 16 : 22);
+  var WILLOW_COLS = ["#FFD166", "#FFF3B0", "#FFB84D", "#FFE9A8"];
+  function pickFwKind(){
+    var roll = Math.random();
+    return roll < 0.3 ? "heart" : roll < 0.55 ? "willow" : "sphere";
+  }
+  function spawnFirework(ox, oy, big, kind){
+    kind = kind || "sphere";
+    var n = big ? (isNarrow ? 28 : 38) : (isNarrow ? 18 : 24);
     var col = SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0];
     var col2 = SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0];
+    var heart = kind === "heart", willow = kind === "willow";
     for (var i = 0; i < n; i++){
       var ang = (i / n) * Math.PI * 2 + Math.random() * 0.2;
       var sp = (big ? 1.4 : 1.0) + Math.random() * 2.2;
+      var vx = Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
+      var color, life;
+      if (heart){
+        var th = (i / n) * Math.PI * 2;
+        var hs = Math.sin(th);
+        var hx = 16 * hs * hs * hs;
+        var hy = 13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th);
+        var sc = (big ? 0.16 : 0.12) * (0.9 + Math.random() * 0.25);
+        vx = hx * sc; vy = -hy * sc;
+        color = Math.random() < 0.3 ? "#FFFFFF" : HEART_COLORS[(Math.random() * HEART_COLORS.length) | 0];
+        life = 1100 + Math.random() * 600;
+      } else if (willow){
+        vx = Math.cos(ang) * sp * 0.9; vy = Math.sin(ang) * sp * 0.75;
+        color = WILLOW_COLS[(Math.random() * WILLOW_COLS.length) | 0];
+        life = 1600 + Math.random() * 900;
+      } else {
+        color = Math.random() < 0.35 ? "#FFFFFF" : (Math.random() < 0.5 ? col : col2);
+        life = 900 + Math.random() * 700;
+      }
       fireworks.push({
         x: ox, y: oy, px: ox, py: oy,
-        vx: Math.cos(ang) * sp,
-        vy: Math.sin(ang) * sp,
+        vx: vx, vy: vy,
         size: 1.6 + Math.random() * 2.2,
-        color: Math.random() < 0.35 ? "#FFFFFF" : (Math.random() < 0.5 ? col : col2),
-        born: performance.now(), life: 900 + Math.random() * 700,
-        phase: Math.random() * Math.PI * 2
+        color: color,
+        born: performance.now(), life: life,
+        phase: Math.random() * Math.PI * 2,
+        kind: kind
       });
     }
+  }
+  function launchRocket(){
+    var tx = W * (0.15 + Math.random() * 0.7);
+    var ty = H * (0.14 + Math.random() * 0.28);
+    rockets.push({
+      x: tx, y: H * 0.86, ty: ty,
+      vy: -(H * 0.012) * (0.9 + Math.random() * 0.4),
+      kind: pickFwKind(), big: Math.random() < 0.5,
+      born: performance.now()
+    });
   }
   function burstFireworks(){
     if (reduced) return;
@@ -998,7 +1081,7 @@
     for (var s = 0; s < shots; s++){
       var ox = W * (0.2 + Math.random() * 0.6);
       var oy = H * (0.16 + Math.random() * 0.26);
-      spawnFirework(ox, oy, true);
+      spawnFirework(ox, oy, true, pickFwKind());
     }
   }
 
@@ -1071,6 +1154,19 @@
       ctx.fill();
     });
 
+    // 烟花炸开时的背景轻闪（由 flash 驱动，逐帧衰减）
+    if (flash > 0.01){
+      ctx.save();
+      ctx.globalAlpha = flash * 0.18;
+      var fg = ctx.createRadialGradient(W / 2, H * 0.4, 1, W / 2, H * 0.4, Math.max(W, H) * 0.7);
+      fg.addColorStop(0, "rgba(255,240,250,1)");
+      fg.addColorStop(1, "rgba(255,240,250,0)");
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      flash *= 0.92;
+    } else { flash = 0; }
+
     // 背景对角柔光束（仅宽屏，低透明度氛围光，不抢主体）
     if (!isNarrow){
       var beamDefs = [
@@ -1119,6 +1215,36 @@
       }
     });
     ctx.globalAlpha = 1;
+
+    // 偶发流星：右上向左下斜划，带细尾
+    if (!reduced && now - lastMeteor > nextMeteor){
+      lastMeteor = now;
+      nextMeteor = 4000 + Math.random() * 4000;
+      meteors.push({
+        x: W * (0.35 + Math.random() * 0.6),
+        y: H * (0.05 + Math.random() * 0.22),
+        vx: -(0.004 + Math.random() * 0.003) * W,
+        vy: (0.0025 + Math.random() * 0.002) * W,
+        born: now, life: 900 + Math.random() * 400
+      });
+    }
+    for (var mi = meteors.length - 1; mi >= 0; mi--){
+      var mt = meteors[mi];
+      var mage = (now - mt.born) / 1000, mlife = mt.life / 1000;
+      if (mage > mlife){ meteors.splice(mi, 1); continue; }
+      if (!reduced){ mt.x += mt.vx; mt.y += mt.vy; }
+      var mk = 1 - mage / mlife;
+      var tx = mt.x - mt.vx * 14, ty = mt.y - mt.vy * 14;
+      ctx.save();
+      var mg = ctx.createLinearGradient(mt.x, mt.y, tx, ty);
+      mg.addColorStop(0, "rgba(255,255,255," + (0.9 * mk) + ")");
+      mg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.strokeStyle = mg; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(mt.x, mt.y); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.globalAlpha = mk; ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath(); ctx.arc(mt.x, mt.y, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
 
     balloons.forEach(function(b){
       if (!reduced){
@@ -1215,7 +1341,7 @@
       ctx.save();
       ctx.translate(ccx, ccy);
       ctx.rotate(c.rot);
-      ctx.globalAlpha = 0.75;
+      ctx.globalAlpha = c.alpha || 0.75;
       ctx.fillStyle = c.color;
       if (c.shape === 0){
         ctx.fillRect(-c.size / 2, -c.size / 3, c.size, c.size * 0.66);
@@ -1227,6 +1353,47 @@
       ctx.restore();
     });
 
+    // 蛋糕上方偶发金色星光雨
+    if (!reduced && t > 3 && now - lastRain > nextRain){
+      lastRain = now;
+      nextRain = 5000 + Math.random() * 4000;
+      var batch = isNarrow ? 5 : 8;
+      for (var sr = 0; sr < batch; sr++){
+        starRain.push({
+          x: layout.ccx + (Math.random() - 0.5) * layout.cakeW * 1.1,
+          y: H * 0.42 + Math.random() * H * 0.1,
+          vy: 0.06 + Math.random() * 0.08,
+          size: 1.5 + Math.random() * 2,
+          phase: Math.random() * Math.PI * 2,
+          born: now, life: 2200 + Math.random() * 1200
+        });
+      }
+    }
+    for (var si = starRain.length - 1; si >= 0; si--){
+      var srp = starRain[si];
+      var sage = (now - srp.born) / 1000, slife = srp.life / 1000;
+      if (sage > slife){ starRain.splice(si, 1); continue; }
+      if (!reduced){ srp.y += srp.vy / 100; }
+      var sk = 1 - sage / slife;
+      var srx = srp.x + Math.sin(srp.phase + t * 2) * 8;
+      drawStar(srx, srp.y, srp.size, "#FFD166", sk * 0.8);
+    }
+
+    // 升空火箭：升到高点后爆开
+    for (var ri = rockets.length - 1; ri >= 0; ri--){
+      var rk = rockets[ri];
+      rk.y += rk.vy;
+      ctx.save();
+      ctx.globalAlpha = 0.85; ctx.fillStyle = "#FFE9A8";
+      ctx.beginPath(); ctx.arc(rk.x, rk.y, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      if (rk.y <= rk.ty){
+        rockets.splice(ri, 1);
+        spawnFirework(rk.x, rk.ty, rk.big, rk.kind);
+        flash = rk.big ? 0.34 : 0.22;
+      }
+    }
+
     // 庆祝烟花：重力下坠 + 阻尼 + 渐隐
     for (var fi = fireworks.length - 1; fi >= 0; fi--){
       var fw = fireworks[fi];
@@ -1234,8 +1401,10 @@
       var flife = fw.life / 1000;
       if (fage > flife){ fireworks.splice(fi, 1); continue; }
       fw.px = fw.x; fw.py = fw.y;
-      fw.vy += 0.035;
-      fw.vx *= 0.985; fw.vy *= 0.985;
+      var g = fw.kind === "willow" ? 0.02 : 0.035;
+      var damp = fw.kind === "willow" ? 0.99 : 0.985;
+      fw.vy += g;
+      fw.vx *= damp; fw.vy *= damp;
       fw.x += fw.vx; fw.y += fw.vy;
       var fk = 1 - fage / flife;
       ctx.save();
@@ -1250,10 +1419,10 @@
       ctx.beginPath();
       ctx.arc(fw.x, fw.y, Math.max(fw.size * fk, 0.4), 0, Math.PI * 2);
       ctx.fill();
-      // 短拖尾
-      ctx.globalAlpha = fk * 0.6;
+      // 拖尾（垂柳更长）
+      ctx.globalAlpha = fk * (fw.kind === "willow" ? 0.75 : 0.6);
       ctx.strokeStyle = fw.color;
-      ctx.lineWidth = Math.max(fw.size * fk * 0.8, 0.4);
+      ctx.lineWidth = Math.max(fw.size * fk * (fw.kind === "willow" ? 0.7 : 0.8), 0.4);
       ctx.beginPath();
       ctx.moveTo(fw.px, fw.py);
       ctx.lineTo(fw.x, fw.y);
@@ -1272,16 +1441,32 @@
       drawHeart(hx, hy, h.size * (1 - k * 0.4), h.color, 0.85 * (1 - k));
     }
 
+    // 点按扩散涟漪（双环）
+    for (var ri = ripples.length - 1; ri >= 0; ri--){
+      var rp = ripples[ri];
+      var rage = (now - rp.born) / 1000, rlife = rp.life / 1000;
+      if (rage > rlife){ ripples.splice(ri, 1); continue; }
+      var rk = rage / rlife;
+      var rr = rp.size * (0.3 + rk * 1.8);
+      ctx.save();
+      ctx.globalAlpha = (1 - rk) * 0.6;
+      ctx.strokeStyle = rp.color; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, rr, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = (1 - rk) * 0.35;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, rr * 0.6, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
     updatePopups(now, heartP);
 
     if (!reduced){
       if (t > 4.6 && fwWave === 0){ fwWave = 1; fwFired = true; burstFireworks(); }
       else if (t > 8.5 && fwWave === 1){ fwWave = 2; burstFireworks(); }
-      // 开场两波之后，每隔数秒在上方随机位置自动绽放一朵
+      // 开场两波之后，每隔较短时间发射一枚升空火箭，到高点再爆开
       if (t > 9 && now - lastAutoFw > nextAutoFw){
         lastAutoFw = now;
-        nextAutoFw = 3200 + Math.random() * 2200;
-        spawnFirework(W * (0.15 + Math.random() * 0.7), H * (0.14 + Math.random() * 0.28), Math.random() < 0.45);
+        nextAutoFw = 1800 + Math.random() * 1400;
+        launchRocket();
       }
     }
 
@@ -1299,6 +1484,8 @@
     clearPopups();
     fwWave = 0; fwFired = false; fireworks.length = 0;
     lastAutoFw = 0; nextAutoFw = 4200;
+    rockets.length = 0; meteors.length = 0; starRain.length = 0; ripples.length = 0;
+    flash = 0; lastMeteor = 0; nextMeteor = 3000; lastRain = 0; nextRain = 4000;
     if (musicOn){ Music.replay(); }
   });
 
@@ -1337,9 +1524,18 @@
       born: performance.now(), life: 1.2 + Math.random() * 0.6
     });
   }
+  function spawnRipple(x, y){
+    if (ripples.length >= 10) ripples.shift();
+    ripples.push({
+      x: x, y: y, size: 10,
+      color: HEART_COLORS[(Math.random() * HEART_COLORS.length) | 0],
+      born: performance.now(), life: 0.7
+    });
+  }
   document.addEventListener("pointerdown", function(e){
     if (e.target && e.target.closest && e.target.closest(".controls")) return;
     spawnTapHeart(e.clientX, e.clientY);
+    spawnRipple(e.clientX, e.clientY);
   });
 
   var btnFull = document.getElementById("btnFull");
