@@ -108,7 +108,7 @@
 
   @media (max-width:480px){
     .greeting{ top:5%; }
-    .controls{ right:10px; bottom:10px; gap:8px; }
+    .controls{ left:0; right:0; justify-content:center; bottom:10px; gap:8px; }
     .controls button{ padding:8px 13px; font-size:13px; }
     .pop{ font-size:12px; padding:6px 11px; border-radius:12px; white-space:normal; max-width:38%; line-height:1.35; }
   }
@@ -145,7 +145,7 @@
   var params = new URLSearchParams(location.search);
   var NAME = (params.get("name") || "张彬铃小朋友").trim();
   if (NAME.length > 12) NAME = NAME.slice(0, 12) + "…";
-  var SUBTITLE = "愿你新的一岁，继续闪闪发光";
+  var SUBTITLE = "愿你新的一岁 继续闪闪发光";
 
   var BLESSINGS = [
     "天天开心", "万事顺意", "平安喜乐", "心想事成",
@@ -922,12 +922,14 @@
     el.style.background = POP_COLORS[(Math.random() * POP_COLORS.length) | 0];
     if (isNarrow){
       el.style.top = (34 + Math.random() * 38) + "%";
-      var ls = Math.random() < 0.5;
-      el.style.left = (ls ? 2 : 83) + Math.random() * 14 + "%";
+      var leftSide = Math.random() < 0.5;
+      if (leftSide){ el.style.left = (3 + Math.random() * 10) + "%"; }
+      else { el.style.right = (3 + Math.random() * 10) + "%"; }
     } else {
       el.style.top = (38 + Math.random() * 44) + "%";
-      var leftSide = Math.random() < 0.5;
-      el.style.left = (leftSide ? 6 : 70) + Math.random() * 24 + "%";
+      var leftSide2 = Math.random() < 0.5;
+      if (leftSide2){ el.style.left = (5 + Math.random() * 16) + "%"; }
+      else { el.style.right = (5 + Math.random() * 16) + "%"; }
     }
     popLayer.appendChild(el);
     requestAnimationFrame(function(){ el.classList.add("in", "float"); });
