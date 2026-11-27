@@ -115,8 +115,8 @@
 
   @media (max-width:480px){
     .greeting{ top:5%; }
-    .controls{ left:0; right:0; justify-content:center; bottom:10px; gap:8px; }
-    .controls button{ padding:8px 13px; font-size:13px; }
+    .controls{ right:10px; bottom:10px; gap:6px; }
+    .controls button{ padding:6px 10px; font-size:12px; }
     .pop{ font-size:12px; padding:6px 11px; border-radius:12px; white-space:normal; max-width:38%; line-height:1.35; }
   }
 </style>
@@ -1340,6 +1340,14 @@
   buildStatic();
   resize();
   try { Music.start(); } catch (e) {}
+  // 音频缓冲就绪后若仍未播放，再自动尝试一次
+  if (bgmEl){
+    ["loadeddata", "canplaythrough"].forEach(function(ev){
+      bgmEl.addEventListener(ev, function(){
+        if (musicOn && bgmEl.paused) Music.start();
+      });
+    });
+  }
   requestAnimationFrame(frame);
 })();
 </script>
