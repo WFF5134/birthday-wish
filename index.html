@@ -13,7 +13,8 @@
     --pink:#FF6B9D; --pink-soft:#FF8FB1; --cream:#FFF5F7; --sub:#E8B9C9;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  html,body{ height:100%; overflow:hidden; }
+  html,body{ height:100%; overflow:hidden; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  body{ user-select:none; -webkit-user-select:none; }
   body{
     background:
       radial-gradient(ellipse 70% 45% at 50% 18%, rgba(120,70,140,.35) 0%, rgba(120,70,140,0) 70%),
@@ -250,7 +251,7 @@
     for (i = 0; i < 22; i++){
       floaters.push({
         x: Math.random(), y: Math.random(),
-        vy: 0.25 + Math.random() * 0.55,
+        vy: 0.16 + Math.random() * 0.36,
         size: 6 + Math.random() * 9,
         phase: Math.random() * Math.PI * 2,
         kind: Math.random() < 0.55 ? "heart" : "spark",
@@ -261,7 +262,7 @@
     for (i = 0; i < 9; i++){
       balloons.push({
         x: balloonX(), y: Math.random() * 1.2 - 0.2,
-        vy: 0.10 + Math.random() * 0.14,
+        vy: 0.065 + Math.random() * 0.09,
         size: 18 + Math.random() * 16,
         phase: Math.random() * Math.PI * 2,
         color: BALLOON_COLORS[(Math.random() * BALLOON_COLORS.length) | 0]
@@ -293,7 +294,7 @@
       sparks.push({
         x: 0.5 + (Math.random() - 0.5) * 0.16,
         y: Math.random(),
-        vy: 0.35 + Math.random() * 0.4,
+        vy: 0.23 + Math.random() * 0.26,
         size: 1.5 + Math.random() * 2.2,
         phase: Math.random() * Math.PI * 2
       });
@@ -318,7 +319,7 @@
     for (i = 0; i < 24; i++){
       confetti.push({
         x: Math.random(), y: Math.random(),
-        vy: 0.12 + Math.random() * 0.22,
+        vy: 0.08 + Math.random() * 0.15,
         sway: 10 + Math.random() * 16,
         size: 4 + Math.random() * 4,
         color: SPARK_COLORS[(Math.random() * SPARK_COLORS.length) | 0],
@@ -987,7 +988,7 @@
     var heart = kind === "heart";
     for (var i = 0; i < n; i++){
       var ang = (i / n) * Math.PI * 2 + Math.random() * 0.2;
-      var sp = (big ? 1.4 : 1.0) + Math.random() * 2.2;
+      var sp = (big ? 1.1 : 0.8) + Math.random() * 1.5;
       var vx = Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
       var color, life = 900 + Math.random() * 700;
       if (heart){
@@ -1018,7 +1019,7 @@
     var ty = H * (0.14 + Math.random() * 0.28);
     rockets.push({
       x: tx, y: H * 0.86, ty: ty,
-      vy: -(H * 0.012) * (0.9 + Math.random() * 0.4),
+      vy: -(H * 0.008) * (0.9 + Math.random() * 0.4),
       kind: pickFwKind(), big: Math.random() < 0.5,
       born: performance.now()
     });
@@ -1046,27 +1047,32 @@
   var Music = {
     audio: bgmEl,
     playing: false,
+    _starting: false,
     _play: function(){
       if (!this.audio || !audioOk) return;
+      // 已在播放，或上一次 play() 尚未决，不再重复发起，避免移动端音频队列堆积卡死
+      if (!this.audio.paused || this._starting) return;
       var self = this;
+      this._starting = true;
       var p = this.audio.play();
       if (p && p.then){
-        p.then(function(){ self.playing = true; hideMusicHint(); })
+        p.then(function(){ self.playing = true; self._starting = false; hideMusicHint(); })
          .catch(function(err){
-           self.playing = false;
+           self.playing = false; self._starting = false;
            if (err && err.name === "NotAllowedError") showMusicHint();
          });
       } else {
-        self.playing = true; hideMusicHint();
+        self.playing = true; self._starting = false; hideMusicHint();
       }
     },
     start: function(){ this._play(); },
     stop: function(){
-      this.playing = false;
+      this.playing = false; this._starting = false;
       if (this.audio){ this.audio.pause(); }
     },
     replay: function(){
       if (!this.audio || !audioOk) return;
+      this._starting = false;
       this.audio.currentTime = 0;
       this._play();
     }
@@ -1084,6 +1090,7 @@
 
   function frame(now){
     if (paused) return;
+    requestAnimationFrame(frame); // 先排队下一帧，保证即使本帧绘制异常循环也不中断
     var t = reduced ? 99 : (now - start) / 1000;
     ctx.clearRect(0, 0, W, H);
 
@@ -1158,8 +1165,8 @@
       meteors.push({
         x: W * (0.35 + Math.random() * 0.6),
         y: H * (0.05 + Math.random() * 0.22),
-        vx: -(0.004 + Math.random() * 0.003) * W,
-        vy: (0.0025 + Math.random() * 0.002) * W,
+        vx: -(0.0028 + Math.random() * 0.002) * W,
+        vy: (0.0018 + Math.random() * 0.0014) * W,
         born: now, life: 900 + Math.random() * 400
       });
     }
@@ -1309,8 +1316,8 @@
       var flife = fw.life / 1000;
       if (fage > flife){ fireworks.splice(fi, 1); continue; }
       fw.px = fw.x; fw.py = fw.y;
-      fw.vy += 0.035;
-      fw.vx *= 0.985; fw.vy *= 0.985;
+      fw.vy += 0.028;
+      fw.vx *= 0.988; fw.vy *= 0.988;
       fw.x += fw.vx; fw.y += fw.vy;
       var fk = 1 - fage / flife;
       ctx.save();
@@ -1342,7 +1349,7 @@
       var age = (now - h.born) / 1000;
       if (age > h.life){ tapHearts.splice(i, 1); continue; }
       var k = age / h.life;
-      var hy = h.y - k * 60;
+      var hy = h.y - k * 38;
       var hx = h.x + Math.sin(h.phase + age * 3) * 10;
       drawHeart(hx, hy, h.size * (1 - k * 0.4), h.color, 0.85 * (1 - k));
     }
@@ -1353,7 +1360,7 @@
       var rage = (now - rp.born) / 1000, rlife = rp.life / 1000;
       if (rage > rlife){ ripples.splice(ri, 1); continue; }
       var rk = rage / rlife;
-      var rr = rp.size * (0.3 + rk * 1.8);
+      var rr = Math.max(rp.size * (0.3 + rk * 1.8), 0.5);
       ctx.save();
       ctx.globalAlpha = (1 - rk) * 0.6;
       ctx.strokeStyle = rp.color; ctx.lineWidth = 1.6;
@@ -1379,8 +1386,6 @@
     if (t > 4.2 && !greetingEl.classList.contains("show")){
       greetingEl.classList.add("show");
     }
-
-    requestAnimationFrame(frame);
   }
 
   /* ================= 交互 ================= */
@@ -1410,14 +1415,13 @@
   });
 
   // 默认开启：受浏览器自动播放限制，首次点击 / 触摸 / 按键时解锁发声
-  var unlockEvents = ["pointerdown", "touchstart", "touchend", "mousedown", "click", "keydown", "gesturestart"];
+  // 仅绑定 pointerdown 与 keydown，避免一次触摸同时触发多个事件重复 play
   function unlockMusic(){
     if (!musicOn || Music.playing) return;
     Music.start();
   }
-  unlockEvents.forEach(function(ev){
-    document.addEventListener(ev, unlockMusic, { passive: true });
-  });
+  document.addEventListener("pointerdown", unlockMusic, { passive: true });
+  document.addEventListener("keydown", unlockMusic);
 
   // 点按屏幕迸发小爱心（按钮区除外）
   function spawnTapHeart(x, y){
@@ -1435,11 +1439,15 @@
     ripples.push({
       x: x, y: y, size: 10,
       color: HEART_COLORS[(Math.random() * HEART_COLORS.length) | 0],
-      born: performance.now(), life: 0.7
+      born: performance.now(), life: 0.9
     });
   }
+  var lastTapAt = 0;
   document.addEventListener("pointerdown", function(e){
     if (e.target && e.target.closest && e.target.closest(".controls")) return;
+    var nowTap = performance.now();
+    if (nowTap - lastTapAt < 90) return; // 连续快速点按节流，避免对象堆积
+    lastTapAt = nowTap;
     spawnTapHeart(e.clientX, e.clientY);
     spawnRipple(e.clientX, e.clientY);
   });
